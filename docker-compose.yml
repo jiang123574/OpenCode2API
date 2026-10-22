@@ -25,6 +25,11 @@ services:
       - OPENCODE_WEB_PANEL_ENABLED=${OPENCODE_WEB_PANEL_ENABLED:-false}
       - OPENCODE_PROXY_PORT=${OPENCODE_PROXY_PORT:-10000}
       - OPENCODE_SERVER_PORT=${OPENCODE_SERVER_PORT:-10001}
+      # Zen-direct lane: native tool calls, no OpenCode backend. Required by
+      # agent hosts (DSH, Cline, Roo) that execute tools themselves.
+      - OPENCODE_ZEN_DIRECT=${OPENCODE_ZEN_DIRECT:-false}
+      - OPENCODE_ZEN_BASE_URL=${OPENCODE_ZEN_BASE_URL:-https://opencode.ai/zen/v1}
+      - OPENCODE_ZEN_DIRECT_RETRIES=${OPENCODE_ZEN_DIRECT_RETRIES:-3}
     volumes:
       - opencode-data:/home/node/.local/share/opencode
       - opencode-config:/home/node/.config/opencode

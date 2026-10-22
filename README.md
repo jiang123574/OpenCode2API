@@ -19,6 +19,7 @@
 - **内置工具 allowlist** — 请求未带 `tools` 时，仅放行 `OPENCODE_INTERNAL_ALLOWED_TOOLS` 声明的内置工具
 - **可观测性** — `/health/details` 结构化诊断，`/metrics` Prometheus 指标
 - **Web Panel** — 可选内置面板（`/panel`），只读展示状态/模型/诊断，默认关闭
+- **Zen 直连模式** — `OPENCODE_ZEN_DIRECT=true` 时跳过 OpenCode 后端，把客户端的工具当**原生 function schema** 透传，模型直接返回 `tool_calls`（DSH / Cline / Roo 这类自己跑工具循环的宿主必须用这个模式，详见 [Zen 直连](./docs/zh/zen-direct.md)）
 - **Docker 部署** — 一键启动，自动拉起 OpenCode 后端
 
 ## 🚀 快速开始
@@ -164,6 +165,9 @@ curl -X POST http://127.0.0.1:10000/v1/messages \
 | `OPENCODE_USE_ISOLATED_HOME` | `false` | 使用隔离的 OpenCode 配置目录 |
 | `OPENCODE_WEB_PANEL_ENABLED` | `false` | 开启内置 Web Panel（`/panel`） |
 | `OPENCODE_PROXY_DEBUG` | `false` | 调试日志 |
+| `OPENCODE_ZEN_DIRECT` | `false` | 直连 Zen 免费通道，原生工具调用、不启 opencode 后端（见 [Zen 直连](./docs/zh/zen-direct.md)） |
+| `OPENCODE_ZEN_BASE_URL` | `https://opencode.ai/zen/v1` | 直连模式的上游地址 |
+| `OPENCODE_ZEN_DIRECT_RETRIES` | `3` | 直连模式 429/5xx 退避重试次数 |
 
 > 📄 完整配置见 [配置详解](./docs/zh/configuration.md)
 
@@ -225,6 +229,7 @@ OPENCODE_PROXY_AUTO_CLEANUP_CONVERSATIONS=true
 | [Docker 部署](./docs/zh/docker.md) | 部署与运维 |
 | [故障排查](./docs/zh/troubleshooting.md) | 常见问题 |
 | [开发指南](./docs/zh/development.md) | 本地开发与测试 |
+| [Zen 直连模式](./docs/zh/zen-direct.md) | 原生工具调用（DSH / Cline 等 agent 宿主） |
 
 ## 📄 许可证
 

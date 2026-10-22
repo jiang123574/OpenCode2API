@@ -77,7 +77,10 @@ const defaultConfig = {
     // easy to lose depending on how the process was started; they can now also
     // live in config.json so every launch path picks them up.
     EVENT_IDLE_TIMEOUT_MS: parseInt(process.env.OPENCODE2API_EVENT_IDLE_TIMEOUT_MS) || 0,
-    EVENT_FIRST_DELTA_TIMEOUT_MS: parseInt(process.env.OPENCODE2API_EVENT_FIRST_DELTA_TIMEOUT_MS) || 0
+    EVENT_FIRST_DELTA_TIMEOUT_MS: parseInt(process.env.OPENCODE2API_EVENT_FIRST_DELTA_TIMEOUT_MS) || 0,
+    // Direct Zen lane: no OpenCode server, native tool calls preserved.
+    ZEN_DIRECT: parseBool(process.env.OPENCODE_ZEN_DIRECT, false),
+    ZEN_BASE_URL: process.env.OPENCODE_ZEN_BASE_URL || 'https://opencode.ai/zen/v1'
 };
 
 // Load config from file
@@ -123,7 +126,9 @@ const finalConfig = {
     WEB_PANEL_ENABLED: parseBool(process.env.OPENCODE_WEB_PANEL_ENABLED, parseBool(fileConfig.WEB_PANEL_ENABLED, defaultConfig.WEB_PANEL_ENABLED)),
     // undefined => keep the library default (8000 / 30000)
     EVENT_IDLE_TIMEOUT_MS: parseInt(process.env.OPENCODE2API_EVENT_IDLE_TIMEOUT_MS) || parseInt(fileConfig.EVENT_IDLE_TIMEOUT_MS) || undefined,
-    EVENT_FIRST_DELTA_TIMEOUT_MS: parseInt(process.env.OPENCODE2API_EVENT_FIRST_DELTA_TIMEOUT_MS) || parseInt(fileConfig.EVENT_FIRST_DELTA_TIMEOUT_MS) || undefined
+    EVENT_FIRST_DELTA_TIMEOUT_MS: parseInt(process.env.OPENCODE2API_EVENT_FIRST_DELTA_TIMEOUT_MS) || parseInt(fileConfig.EVENT_FIRST_DELTA_TIMEOUT_MS) || undefined,
+    ZEN_DIRECT: parseBool(process.env.OPENCODE_ZEN_DIRECT, parseBool(fileConfig.ZEN_DIRECT, defaultConfig.ZEN_DIRECT)),
+    ZEN_BASE_URL: process.env.OPENCODE_ZEN_BASE_URL || fileConfig.ZEN_BASE_URL || defaultConfig.ZEN_BASE_URL
 };
 
 // Validate required configuration
@@ -148,10 +153,11 @@ try {
     process.exit(1);
 }
 
-// Check if opencode is available
+// Check if opencode is available. The direct Zen lane never spawns a backend,
+// so a missing binary is not a problem there.
 import { execSync } from 'child_process';
 try {
-    execSync(`"${finalConfig.OPENCODE_PATH}" --version`, { stdio: 'ignore' });
+    if (!finalConfig.ZEN_DIRECT) execSync(`"${finalConfig.OPENCODE_PATH}" --version`, { stdio: 'ignore' });
 } catch (e) {
     console.warn(`[Warning] Cannot verify OpenCode installation: ${finalConfig.OPENCODE_PATH}`);
     console.warn('[Warning] Please ensure OpenCode is installed:');
@@ -164,7 +170,8 @@ try {
 console.log('[Config] Starting with configuration:');
 console.log(`  - Port: ${finalConfig.PORT}`);
 console.log(`  - Bind Host: ${finalConfig.BIND_HOST}`);
-console.log(`  - Backend: ${finalConfig.OPENCODE_SERVER_URL}`);
+console.log(`  - Backend: ${finalConfig.ZEN_DIRECT ? 'disabled (zen-direct lane)' : finalConfig.OPENCODE_SERVER_URL}`);
+console.log(`  - Zen Direct: ${finalConfig.ZEN_DIRECT ? `Yes (${finalConfig.ZEN_BASE_URL})` : 'No (OpenCode backend)'}`);
 console.log(`  - Backend Password: ${finalConfig.OPENCODE_SERVER_PASSWORD ? 'Configured' : 'Not configured'}`);
 console.log(`  - OpenCode Path: ${finalConfig.OPENCODE_PATH}`);
 console.log(`  - API Key: ${finalConfig.API_KEY ? 'Configured' : 'Not configured (no auth)'}`);

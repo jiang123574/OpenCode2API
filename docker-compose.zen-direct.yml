@@ -1,0 +1,12 @@
+# Use the official ghcr image with the zen-direct patch files mounted in —
+# no image rebuild needed. Point the two host paths at the patched checkout,
+# then: docker compose -f docker-compose.yml -f docker-compose.zen-direct.yml up -d
+services:
+  opencode2api:
+    environment:
+      - OPENCODE_ZEN_DIRECT=true
+      - OPENCODE_ZEN_BASE_URL=${OPENCODE_ZEN_BASE_URL:-https://opencode.ai/zen/v1}
+      - OPENCODE_ZEN_DIRECT_RETRIES=${OPENCODE_ZEN_DIRECT_RETRIES:-3}
+    volumes:
+      - ./src/zen-direct.js:/home/node/project/src/zen-direct.js:ro
+      - ./src/proxy.js:/home/node/project/src/proxy.js:ro

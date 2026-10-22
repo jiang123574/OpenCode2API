@@ -10,3 +10,4 @@ config.json
 # Per-key usage snapshot (see docs/configuration.md)
 usage.json
 .usage.json.*.tmp
+.npm-cache/

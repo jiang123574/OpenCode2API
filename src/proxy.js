@@ -15,6 +15,7 @@ import { buildExternalToolRegistry, findExternalToolByName } from './tool-runtim
 import { buildToolExposure } from './tool-runtime/router.js';
 import { validateToolCalls } from './tool-runtime/validator.js';
 import { PANEL_CSP, PANEL_HTML } from './panel-page.js';
+import { installZenDirectRoutes } from './zen-direct.js';
 import { createUsageStore, defaultUsageFilePath } from './usage-persistence.js';
 import {
     stripFunctionCallMarkup,
@@ -910,7 +911,13 @@ export function createApp(config) {
         WEB_PANEL_ENABLED = false,
         USAGE_PERSISTENCE = false,
         USAGE_FILE = null,
-        USAGE_SAVE_INTERVAL_MS = DEFAULT_USAGE_SAVE_INTERVAL_MS
+        USAGE_SAVE_INTERVAL_MS = DEFAULT_USAGE_SAVE_INTERVAL_MS,
+        // Zen-direct lane: talk to the OpenCode Zen free lane straight, keeping
+        // the client's tools as native function schemas (no OpenCode server).
+        ZEN_DIRECT = false,
+        ZEN_BASE_URL = 'https://opencode.ai/zen/v1',
+        ZEN_DIRECT_RETRIES = 3,
+        ZEN_API_KEY = ''
     } = config;
 
     // Multi-user keys: parse once at app creation. Duplicate keys/names throw
@@ -1029,6 +1036,19 @@ export function createApp(config) {
         }
         next();
     });
+
+    // Zen-direct lane. Mounted AFTER the auth middleware (so req.apiKeyName is
+    // known) and BEFORE the backend-backed handlers below, which it shadows.
+    if (ZEN_DIRECT) {
+        const { baseUrl } = installZenDirectRoutes(app, {
+            baseUrl: ZEN_BASE_URL,
+            apiKey: ZEN_API_KEY || 'public',
+            debug: DEBUG,
+            timeoutMs: REQUEST_TIMEOUT_MS,
+            retries: ZEN_DIRECT_RETRIES
+        });
+        console.log(`[Proxy] Zen-direct lane enabled -> ${baseUrl} (native tool calls, no OpenCode backend)`);
+    }
 
     const getProvidersList = async () => {
         const providersRes = await client.config.providers();
@@ -4207,6 +4227,7 @@ export function createApp(config) {
         const diagnostics = {
             status: 'ok',
             proxy: true,
+            zen_direct: ZEN_DIRECT,
             internal_tools: {
                 config: {
                     allowed_tools: SERVER_INTERNAL_ALLOWED_TOOL_NAMES
@@ -5395,13 +5416,23 @@ export function startProxy(options) {
             normalizeBool(process.env.OPENCODE_USAGE_PERSISTENCE) ??
             true,
         USAGE_FILE: options.USAGE_FILE || process.env.OPENCODE_USAGE_FILE || defaultUsageFilePath(options.configPath),
-        USAGE_SAVE_INTERVAL_MS: Number(options.USAGE_SAVE_INTERVAL_MS || process.env.OPENCODE_USAGE_SAVE_INTERVAL_MS || DEFAULT_USAGE_SAVE_INTERVAL_MS)
+        USAGE_SAVE_INTERVAL_MS: Number(options.USAGE_SAVE_INTERVAL_MS || process.env.OPENCODE_USAGE_SAVE_INTERVAL_MS || DEFAULT_USAGE_SAVE_INTERVAL_MS),
+        ZEN_DIRECT: normalizeBool(options.ZEN_DIRECT) ??
+            normalizeBool(process.env.OPENCODE_ZEN_DIRECT) ??
+            false,
+        ZEN_BASE_URL: options.ZEN_BASE_URL || process.env.OPENCODE_ZEN_BASE_URL || 'https://opencode.ai/zen/v1',
+        ZEN_DIRECT_RETRIES: Number.isFinite(Number(options.ZEN_DIRECT_RETRIES ?? process.env.OPENCODE_ZEN_DIRECT_RETRIES))
+            ? Number(options.ZEN_DIRECT_RETRIES ?? process.env.OPENCODE_ZEN_DIRECT_RETRIES)
+            : 3
     };
 
     const { app, persistUsageNow } = createApp(config);
     
     const server = app.listen(config.PORT, config.BIND_HOST, async () => {
         console.log(`[Proxy] Active at http://${config.BIND_HOST}:${config.PORT}`);
+        // The direct Zen lane needs no local OpenCode server; spawning one would
+        // only burn memory (and the tool-lock plugin would never be consulted).
+        if (config.ZEN_DIRECT) return;
         try {
             await ensureBackend(config);
         } catch (error) {
