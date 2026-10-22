@@ -95,6 +95,7 @@ OPENCODE_ZEN_DIRECT=true
 | `OPENCODE_ZEN_BASE_URL` | `https://opencode.ai/zen/v1` | 上游地址（自建反代 / 出口 IP 轮换时改这里） |
 | `OPENCODE_ZEN_API_KEY` | `public` | 免费通道用不到；换成付费 key 才会走付费模型 |
 | `OPENCODE_ZEN_DIRECT_RETRIES` | `3` | 429 / 5xx 的退避重试次数 |
+| `OPENCODE_ZEN_PROXY` | (空) | 出口代理，逗号分隔多个（`http://user:pass@host:port`）；请求与 429 重试会轮换 |
 
 ### Docker
 
@@ -146,8 +147,13 @@ npx jest tests/unit/zen-direct.test.js --runInBand
 
 - 直连模式下 `/v1/messages`（Anthropic 协议）仍走后端，而后端不启动 → 该端点不可用。
   需要它就把 `OPENCODE_ZEN_DIRECT` 关掉，或另开一个实例。
-- 免费通道是**按出口 IP 限额**的：容器在同一个 egress IP 上并发太多会 429。
-  多出口轮换请改 `OPENCODE_ZEN_BASE_URL` 指到自己的反代。
+- 免费通道是**按出口 IP 限额**的（实测会出现
+  `FreeUsageLimitError: Free usage limit reached`，所有免费模型共享，可能是小时/天级硬上限，
+  不是等几分钟就恢复的瞬时 429）。多出口方案：
+  - 配 `OPENCODE_ZEN_PROXY=http://host1:port,http://host2:port`，请求和 429 重试自动轮换出口；
+  - 或改 `OPENCODE_ZEN_BASE_URL` 指到自己的反代 / 机场网关。
+  注意容器所在主机本身的公网 IP 如果也在大量用免费通道（比如本机跑 opencode2dsh），
+  两边共享同一个额度。
 - 注入的 `bash` / `read` 桩用的是官方 schema。若客户端**完全没有**声明任何工具，
   请求会带 `tool_choice:"none"`，模型不会去调它们；若客户端声明了别的工具但没 bash/read，
   极小概率模型会去调这两个桩 —— agent 宿主（DSH 等）自己就带 bash/read，不会走到这条路径。

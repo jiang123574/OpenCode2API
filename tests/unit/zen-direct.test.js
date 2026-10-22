@@ -8,6 +8,7 @@ import {
     aggregateSse,
     normalizeModelId,
     isFreeLaneModel,
+    parseProxySpec,
     installZenDirectRoutes
 } from '../../src/zen-direct.js';
 
@@ -130,6 +131,14 @@ describe('model helpers', () => {
         expect(isFreeLaneModel('big-pickle')).toBe(true);
         expect(isFreeLaneModel('claude-opus-4-5')).toBe(false);
     });
+
+    test('parseProxySpec parses a comma-separated list', () => {
+        const proxies = parseProxySpec(' http://1.2.3.4:7890 , http://5.6.7.8:7890 ');
+        expect(proxies).toHaveLength(2);
+        expect(proxies[0].url).toBe('http://1.2.3.4:7890');
+        expect(proxies[1].url).toBe('http://5.6.7.8:7890');
+        expect(parseProxySpec('')).toEqual([]);
+    });
 });
 
 describe('routes', () => {
@@ -197,6 +206,27 @@ describe('routes', () => {
             .send({ model: 'big-pickle', messages: [{ role: 'user', content: 'hi' }] })
             .expect(403);
         expect(res.body.error.type).toBe('free_tier_gate');
+    });
+
+    test('egress proxies rotate round-robin across requests', async () => {
+        const usedDispatchers = [];
+        global.fetch = jest.fn(async (_url, init) => {
+            usedDispatchers.push(init.dispatcher);
+            return new Response(JSON.stringify({ object: 'list', data: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+        });
+        const proxiedApp = express();
+        proxiedApp.use(bodyParser.json());
+        installZenDirectRoutes(proxiedApp, {
+            baseUrl: 'https://example.test/zen/v1',
+            retries: 0,
+            proxies: [
+                { url: 'http://egress-a:7890', agent: { id: 'A' } },
+                { url: 'http://egress-b:7890', agent: { id: 'B' } }
+            ]
+        });
+        await request(proxiedApp).get('/v1/models').expect(200);
+        await request(proxiedApp).get('/v1/models').expect(200);
+        expect(usedDispatchers).toEqual([{ id: 'A' }, { id: 'B' }]);
     });
 
     test('models lists only free-lane ids and keeps the legacy prefix', async () => {

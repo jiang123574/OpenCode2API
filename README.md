@@ -168,6 +168,7 @@ curl -X POST http://127.0.0.1:10000/v1/messages \
 | `OPENCODE_ZEN_DIRECT` | `false` | 直连 Zen 免费通道，原生工具调用、不启 opencode 后端（见 [Zen 直连](./docs/zh/zen-direct.md)） |
 | `OPENCODE_ZEN_BASE_URL` | `https://opencode.ai/zen/v1` | 直连模式的上游地址 |
 | `OPENCODE_ZEN_DIRECT_RETRIES` | `3` | 直连模式 429/5xx 退避重试次数 |
+| `OPENCODE_ZEN_PROXY` | (空) | 直连模式出口代理，逗号分隔多个、自动轮换（应对按 IP 的免费额度） |
 
 > 📄 完整配置见 [配置详解](./docs/zh/configuration.md)
 

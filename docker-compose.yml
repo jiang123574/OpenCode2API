@@ -30,6 +30,9 @@ services:
       - OPENCODE_ZEN_DIRECT=${OPENCODE_ZEN_DIRECT:-false}
       - OPENCODE_ZEN_BASE_URL=${OPENCODE_ZEN_BASE_URL:-https://opencode.ai/zen/v1}
       - OPENCODE_ZEN_DIRECT_RETRIES=${OPENCODE_ZEN_DIRECT_RETRIES:-3}
+      # Comma-separated egress proxies for the per-IP free-lane quota
+      # (http://host:port[,http://host2:port]); requests + 429 retries rotate.
+      - OPENCODE_ZEN_PROXY=${OPENCODE_ZEN_PROXY:-}
     volumes:
       - opencode-data:/home/node/.local/share/opencode
       - opencode-config:/home/node/.config/opencode

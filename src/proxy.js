@@ -917,6 +917,7 @@ export function createApp(config) {
         ZEN_DIRECT = false,
         ZEN_BASE_URL = 'https://opencode.ai/zen/v1',
         ZEN_DIRECT_RETRIES = 3,
+        ZEN_PROXY = '',
         ZEN_API_KEY = ''
     } = config;
 
@@ -1045,9 +1046,11 @@ export function createApp(config) {
             apiKey: ZEN_API_KEY || 'public',
             debug: DEBUG,
             timeoutMs: REQUEST_TIMEOUT_MS,
-            retries: ZEN_DIRECT_RETRIES
+            retries: ZEN_DIRECT_RETRIES,
+            proxy: ZEN_PROXY
         });
-        console.log(`[Proxy] Zen-direct lane enabled -> ${baseUrl} (native tool calls, no OpenCode backend)`);
+        const egress = ZEN_PROXY ? ` via ${ZEN_PROXY.split(',').length} proxy(ies)` : ' via direct egress';
+        console.log(`[Proxy] Zen-direct lane enabled -> ${baseUrl} (native tool calls, no OpenCode backend)${egress}`);
     }
 
     const getProvidersList = async () => {
@@ -5421,6 +5424,7 @@ export function startProxy(options) {
             normalizeBool(process.env.OPENCODE_ZEN_DIRECT) ??
             false,
         ZEN_BASE_URL: options.ZEN_BASE_URL || process.env.OPENCODE_ZEN_BASE_URL || 'https://opencode.ai/zen/v1',
+        ZEN_PROXY: options.ZEN_PROXY || process.env.OPENCODE_ZEN_PROXY || '',
         ZEN_DIRECT_RETRIES: Number.isFinite(Number(options.ZEN_DIRECT_RETRIES ?? process.env.OPENCODE_ZEN_DIRECT_RETRIES))
             ? Number(options.ZEN_DIRECT_RETRIES ?? process.env.OPENCODE_ZEN_DIRECT_RETRIES)
             : 3

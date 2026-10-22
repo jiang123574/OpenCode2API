@@ -26,6 +26,7 @@
  */
 import crypto from 'crypto';
 import { Readable } from 'stream';
+import { ProxyAgent } from 'undici';
 
 const DEFAULT_BASE_URL = 'https://opencode.ai/zen/v1';
 const DEFAULT_PUBLIC_KEY = 'public';
@@ -195,6 +196,18 @@ export function normalizeModelId(model) {
     return raw.replace(/^opencode\//, '');
 }
 
+/**
+ * Parse OPENCODE_ZEN_PROXY: a comma-separated list of proxy URLs
+ * (http://user:pass@host:port, socks5://... needs a compatible agent). Each
+ * entry gets its own undici ProxyAgent; requests (and 429 retries) rotate
+ * round-robin so a free-lane IP quota can be spread across egresses.
+ */
+export function parseProxySpec(spec) {
+    if (!spec || typeof spec !== 'string') return [];
+    const urls = spec.split(',').map((entry) => entry.trim()).filter(Boolean);
+    return urls.map((url) => ({ url, agent: new ProxyAgent({ uri: url }) }));
+}
+
 export function isFreeLaneModel(id) {
     return FREE_MODEL_ID.test(id) || FREE_MODEL_EXTRA.has(id);
 }
@@ -237,11 +250,12 @@ function upstreamError(status, bodyText) {
     return { status, body: { error: { type, message, upstream: payload } } };
 }
 
-async function fetchUpstream(url, init, { retries = 3, debug = false, label = '' } = {}) {
+async function fetchUpstream(url, init, { retries = 3, debug = false, label = '', beforeAttempt = null } = {}) {
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-            const response = await fetch(url, init);
+            const overrides = beforeAttempt ? await beforeAttempt(attempt) : {};
+            const response = await fetch(url, { ...init, ...overrides });
             if (response.ok) return response;
             if (UPSTREAM_RETRY_STATUS.has(response.status) && attempt < retries) {
                 const wait = 700 * 2 ** attempt;
@@ -333,6 +347,16 @@ export function installZenDirectRoutes(app, options = {}) {
     const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 120000;
     const retries = Number.isInteger(options.retries) ? options.retries : 3;
 
+    // Egress rotation for the per-IP free-lane quota (OPENCODE_ZEN_PROXY).
+    const proxies = Array.isArray(options.proxies) ? options.proxies : parseProxySpec(options.proxy);
+    let proxyCursor = 0;
+    const dispatcherForAttempt = () => {
+        if (proxies.length === 0) return {};
+        const proxy = proxies[proxyCursor++ % proxies.length];
+        if (debug) console.log(`[ZenDirect] egress via ${proxy.url}`);
+        return { dispatcher: proxy.agent };
+    };
+
     let modelCache = { at: 0, data: [] };
 
     const log = (...args) => {
@@ -370,7 +394,7 @@ export function installZenDirectRoutes(app, options = {}) {
             const response = await fetchUpstream(`${baseUrl}/models`, {
                 method: 'GET',
                 headers: disguiseHeaders(canonicalSessionId('models'), apiKey)
-            }, { retries, debug, label: 'models' });
+            }, { retries, debug, label: 'models', beforeAttempt: dispatcherForAttempt });
             const text = await response.text();
             if (!response.ok) {
                 const mapped = upstreamError(response.status, text);
@@ -433,7 +457,7 @@ export function installZenDirectRoutes(app, options = {}) {
                 headers: disguiseHeaders(sessionId, apiKey),
                 body: JSON.stringify(upstreamBody),
                 signal: controller.signal
-            }, { retries, debug, label: `chat:${model}` });
+            }, { retries, debug, label: `chat:${model}`, beforeAttempt: dispatcherForAttempt });
 
             if (!response.ok) {
                 clearTimeout(timer);
@@ -498,7 +522,7 @@ export function installZenDirectRoutes(app, options = {}) {
                 headers: disguiseHeaders(sessionId, apiKey),
                 body: JSON.stringify(upstreamBody),
                 signal: controller.signal
-            }, { retries, debug, label: `responses:${model}` });
+            }, { retries, debug, label: `responses:${model}`, beforeAttempt: dispatcherForAttempt });
 
             if (!response.ok) {
                 clearTimeout(timer);

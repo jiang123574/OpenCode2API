@@ -80,7 +80,8 @@ const defaultConfig = {
     EVENT_FIRST_DELTA_TIMEOUT_MS: parseInt(process.env.OPENCODE2API_EVENT_FIRST_DELTA_TIMEOUT_MS) || 0,
     // Direct Zen lane: no OpenCode server, native tool calls preserved.
     ZEN_DIRECT: parseBool(process.env.OPENCODE_ZEN_DIRECT, false),
-    ZEN_BASE_URL: process.env.OPENCODE_ZEN_BASE_URL || 'https://opencode.ai/zen/v1'
+    ZEN_BASE_URL: process.env.OPENCODE_ZEN_BASE_URL || 'https://opencode.ai/zen/v1',
+    ZEN_PROXY: process.env.OPENCODE_ZEN_PROXY || ''
 };
 
 // Load config from file
@@ -128,7 +129,8 @@ const finalConfig = {
     EVENT_IDLE_TIMEOUT_MS: parseInt(process.env.OPENCODE2API_EVENT_IDLE_TIMEOUT_MS) || parseInt(fileConfig.EVENT_IDLE_TIMEOUT_MS) || undefined,
     EVENT_FIRST_DELTA_TIMEOUT_MS: parseInt(process.env.OPENCODE2API_EVENT_FIRST_DELTA_TIMEOUT_MS) || parseInt(fileConfig.EVENT_FIRST_DELTA_TIMEOUT_MS) || undefined,
     ZEN_DIRECT: parseBool(process.env.OPENCODE_ZEN_DIRECT, parseBool(fileConfig.ZEN_DIRECT, defaultConfig.ZEN_DIRECT)),
-    ZEN_BASE_URL: process.env.OPENCODE_ZEN_BASE_URL || fileConfig.ZEN_BASE_URL || defaultConfig.ZEN_BASE_URL
+    ZEN_BASE_URL: process.env.OPENCODE_ZEN_BASE_URL || fileConfig.ZEN_BASE_URL || defaultConfig.ZEN_BASE_URL,
+    ZEN_PROXY: process.env.OPENCODE_ZEN_PROXY || fileConfig.ZEN_PROXY || defaultConfig.ZEN_PROXY
 };
 
 // Validate required configuration
@@ -172,6 +174,7 @@ console.log(`  - Port: ${finalConfig.PORT}`);
 console.log(`  - Bind Host: ${finalConfig.BIND_HOST}`);
 console.log(`  - Backend: ${finalConfig.ZEN_DIRECT ? 'disabled (zen-direct lane)' : finalConfig.OPENCODE_SERVER_URL}`);
 console.log(`  - Zen Direct: ${finalConfig.ZEN_DIRECT ? `Yes (${finalConfig.ZEN_BASE_URL})` : 'No (OpenCode backend)'}`);
+if (finalConfig.ZEN_PROXY) console.log(`  - Zen Egress Proxy: ${finalConfig.ZEN_PROXY}`);
 console.log(`  - Backend Password: ${finalConfig.OPENCODE_SERVER_PASSWORD ? 'Configured' : 'Not configured'}`);
 console.log(`  - OpenCode Path: ${finalConfig.OPENCODE_PATH}`);
 console.log(`  - API Key: ${finalConfig.API_KEY ? 'Configured' : 'Not configured (no auth)'}`);
